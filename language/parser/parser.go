@@ -19,11 +19,10 @@ var tokenDefinitionFn map[string]parseDefinitionFn
 func init() {
 	tokenDefinitionFn = make(map[string]parseDefinitionFn)
 	{
-		// for sign
-		tokenDefinitionFn[lexer.BRACE_L.String()] = parseOperationDefinition
-		tokenDefinitionFn[lexer.STRING.String()] = parseTypeSystemDefinition
-		tokenDefinitionFn[lexer.BLOCK_STRING.String()] = parseTypeSystemDefinition
-		tokenDefinitionFn[lexer.NAME.String()] = parseTypeSystemDefinition
+		// lexer.BLOCK_STRING, lexer.BRACE_L, lexer.NAME, lexer.STRING all use an untyped int const instead of untyped string const.
+		// Therefore we handle them in the `parseDocument(parser *Parser)` switch statement.
+		// This is part of the fork fix for NIST::CVE-2022-37315
+
 		// for NAME
 		tokenDefinitionFn[lexer.FRAGMENT] = parseFragmentDefinition
 		tokenDefinitionFn[lexer.QUERY] = parseOperationDefinition
@@ -145,8 +144,14 @@ func parseDocument(parser *Parser) (*ast.Document, error) {
 			break
 		}
 		switch kind := parser.Token.Kind; kind {
-		case lexer.BRACE_L, lexer.NAME, lexer.STRING, lexer.BLOCK_STRING:
-			item = tokenDefinitionFn[kind.String()]
+		case lexer.BLOCK_STRING:
+			item = parseTypeSystemDefinition
+		case lexer.BRACE_L:
+			item = parseOperationDefinition
+		case lexer.NAME:
+			item = parseTypeSystemDefinition
+		case lexer.STRING:
+			item = parseTypeSystemDefinition
 		default:
 			return nil, unexpected(parser, lexer.Token{})
 		}
@@ -1566,7 +1571,7 @@ func unexpectedEmpty(parser *Parser, beginLoc int, openKind, closeKind lexer.Tok
 	return gqlerrors.NewSyntaxError(parser.Source, beginLoc, description)
 }
 
-//  Returns list of parse nodes, determined by
+// Returns list of parse nodes, determined by
 // the parseFn. This list begins with a lex token of openKind
 // and ends with a lex token of closeKind. Advances the parser
 // to the next lex token after the closing token.

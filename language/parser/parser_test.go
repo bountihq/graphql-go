@@ -14,6 +14,27 @@ import (
 	"github.com/graphql-go/graphql/language/source"
 )
 
+func TestCVE_2022_37315_TypeDefinitionParse_Infinite_Recursion_DoS(t *testing.T) {
+	body := `String r`
+	source := source.NewSource(&source.Source{
+		Body: []byte(body),
+	})
+	_, err := Parse(
+		ParseParams{
+			Source: source,
+			Options: ParseOptions{
+				NoSource: true,
+			},
+		},
+	)
+
+	if err == nil {
+		t.Fatalf("did not get String parse error: %v", err)
+	}
+
+	checkErrorMessage(t, err, `Syntax Error GraphQL (1:1) Unexpected Name "String"`)
+}
+
 func TestBadToken(t *testing.T) {
 	_, err := Parse(ParseParams{
 		Source: &source.Source{
